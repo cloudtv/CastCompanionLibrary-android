@@ -16,12 +16,7 @@
 
 package com.google.sample.castcompanionlibrary.utils;
 
-import com.google.android.gms.cast.MediaInfo;
-import com.google.android.gms.cast.MediaMetadata;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
-import com.google.android.gms.common.images.WebImage;
-import com.google.sample.castcompanionlibrary.R;
+import static com.google.sample.castcompanionlibrary.utils.LogUtils.LOGE;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -33,6 +28,17 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
+
+import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaMetadata;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
+import com.google.android.gms.common.images.WebImage;
+import com.google.sample.castcompanionlibrary.R;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -45,10 +51,12 @@ public class Utils {
     private static final String KEY_IMAGES = "images";
     private static final String KEY_URL = "movie-urls";
     private static final String KEY_CONTENT_TYPE = "content-type";
+    private static final String KEY_STREAM_TYPE = "stream-type";
+    private static final String KEY_CUSTOM_DATA = "custom-data";
 
     /**
      * Formats time in milliseconds to hh:mm:ss string format.
-     * 
+     *
      * @param millis
      * @return
      */
@@ -80,13 +88,23 @@ public class Utils {
     /**
      * A utility method to show a simple error dialog. The textual content of the dialog is provided
      * through the passed-in resource id.
-     * 
+     *
      * @param context
      * @param resourceId
      */
     public static final void showErrorDialog(Context context, int resourceId) {
+        showErrorDialog(context, context.getString(resourceId));
+    }
+
+    /**
+     * A utility method to show a simple error dialog.
+     *
+     * @param context
+     * @param message The message to be shown in the dialog
+     */
+    public static final void showErrorDialog(Context context, String message) {
         new AlertDialog.Builder(context).setTitle(R.string.error)
-                .setMessage(context.getString(resourceId))
+                .setMessage(message)
                 .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
@@ -101,7 +119,7 @@ public class Utils {
      * Returns the URL of an image for the {@link MediaInformation} at the given level. Level should
      * be a number between 0 and <code>n - 1</code> where <code>n
      * </code> is the number of images for that given item.
-     * 
+     *
      * @param info
      * @param level
      * @return
@@ -117,7 +135,7 @@ public class Utils {
     /**
      * Saves a string value under the provided key in the preference manager. If <code>value</code>
      * is <code>null</code>, then the provided key will be removed from the preferences.
-     * 
+     *
      * @param context
      * @param key
      * @param value
@@ -135,7 +153,7 @@ public class Utils {
     /**
      * Saves a float value under the provided key in the preference manager. If <code>value</code>
      * is <code>Float.MIN_VALUE</code>, then the provided key will be removed from the preferences.
-     * 
+     *
      * @param context
      * @param key
      * @param value
@@ -154,7 +172,7 @@ public class Utils {
     /**
      * Retrieves a String value from preference manager. If no such key exists, it will return
      * <code>null</code>.
-     * 
+     *
      * @param context
      * @param key
      * @return
@@ -167,7 +185,7 @@ public class Utils {
     /**
      * Retrieves a float value from preference manager. If no such key exists, it will return
      * <code>Float.MIN_VALUE</code>.
-     * 
+     *
      * @param context
      * @param key
      * @return
@@ -180,7 +198,7 @@ public class Utils {
     /**
      * Retrieves a boolean value from preference manager. If no such key exists, it will return the
      * value provided as <code>defaultValue</code>
-     * 
+     *
      * @param context
      * @param key
      * @param defaultValue
@@ -198,7 +216,7 @@ public class Utils {
      * displays a localized message about the error and upon user confirmation (by tapping on
      * dialog) will direct them to the Play Store if Google Play services is out of date or missing,
      * or to system settings if Google Play services is disabled on the device.
-     * 
+     *
      * @param activity
      * @return
      */
@@ -226,7 +244,7 @@ public class Utils {
      * Builds and returns a {@link Bundle} which contains a select subset of data in the
      * {@link MediaInfo}. Since {@link MediaInfo} is not {@link Parcelable}, one can use this
      * container bundle to pass around from one activity to another.
-     * 
+     *
      * @see <code>toMediaInfo()</code>
      * @param info
      * @return
@@ -243,12 +261,17 @@ public class Utils {
         wrapper.putString(KEY_URL, info.getContentId());
         wrapper.putString(MediaMetadata.KEY_STUDIO, md.getString(MediaMetadata.KEY_STUDIO));
         wrapper.putString(KEY_CONTENT_TYPE, info.getContentType());
+        wrapper.putInt(KEY_STREAM_TYPE, info.getStreamType());
         if (null != md.getImages()) {
             ArrayList<String> urls = new ArrayList<String>();
             for (WebImage img : md.getImages()) {
                 urls.add(img.getUrl().toString());
             }
             wrapper.putStringArrayList(KEY_IMAGES, urls);
+        }
+        JSONObject customData = info.getCustomData();
+        if (null != customData) {
+            wrapper.putString(KEY_CUSTOM_DATA, customData.toString());
         }
 
         return wrapper;
@@ -257,7 +280,7 @@ public class Utils {
     /**
      * Builds and returns a {@link MediaInfo} that was wrapped in a {@link Bundle} by
      * <code>fromMediaInfo</code>.
-     * 
+     *
      * @see <code>fromMediaInfo()</code>
      * @param wrapper
      * @return
@@ -280,10 +303,20 @@ public class Utils {
                 metaData.addImage(new WebImage(uri));
             }
         }
+        String customDataStr = wrapper.getString(KEY_CUSTOM_DATA);
+        JSONObject customData = null;
+        if (!TextUtils.isEmpty(customDataStr)) {
+            try {
+                customData = new JSONObject(customDataStr);
+            } catch (JSONException e) {
+                LOGE(TAG, "Failed to deserialize the custom data string: custom data= " + customDataStr);
+            }
+        }
         return new MediaInfo.Builder(wrapper.getString(KEY_URL))
-                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setStreamType(wrapper.getInt(KEY_STREAM_TYPE))
                 .setContentType(wrapper.getString(KEY_CONTENT_TYPE))
                 .setMetadata(metaData)
+                .setCustomData(customData)
                 .build();
     }
 }

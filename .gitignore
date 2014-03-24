@@ -28,3 +28,7 @@ proguard-project.txt
 .classpath
 .settings/
 project.properties
+
+# Android Studio/IDEA
+*.iml
+.idea
