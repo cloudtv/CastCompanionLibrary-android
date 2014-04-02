@@ -279,7 +279,7 @@ public class DataCastManager extends BaseCastManager
         Builder builder = Cast.CastOptions.builder(
                 mSelectedCastDevice, new CastListener());
         if (isFeatureEnabled(FEATURE_DEBUGGING)) {
-            builder.setDebuggingEnabled();
+            builder.setVerboseLoggingEnabled(true);
         }
         return builder;
     }
@@ -357,6 +357,7 @@ public class DataCastManager extends BaseCastManager
         // registering namespaces, if any
         try {
             attachDataChannels();
+            mSessionId = sessionId;
             synchronized (mDataConsumers) {
                 for (IDataCastConsumer consumer : mDataConsumers) {
                     try {

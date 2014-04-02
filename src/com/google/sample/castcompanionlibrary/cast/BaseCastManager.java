@@ -113,6 +113,7 @@ public abstract class BaseCastManager implements DeviceSelectionListener, Connec
     protected boolean mConnectionSuspened;
     private boolean mWifiConnectivity = true;
     protected static BaseCastManager mCastManager;
+    protected String mSessionId;
 
     /*************************************************************************/
     /************** Abstract Methods *****************************************/
@@ -243,13 +244,13 @@ public abstract class BaseCastManager implements DeviceSelectionListener, Connec
                     }
                 }
             } catch (IllegalStateException e) {
-                LOGE(TAG, "Failed to stop the application after disconecting route", e);
+                LOGE(TAG, "Failed to stop the application after disconnecting route", e);
             } catch (IOException e) {
-                LOGE(TAG, "Failed to stop the application after disconecting route", e);
+                LOGE(TAG, "Failed to stop the application after disconnecting route", e);
             } catch (TransientNetworkDisconnectionException e) {
-                LOGE(TAG, "Failed to stop the application after disconecting route", e);
+                LOGE(TAG, "Failed to stop the application after disconnecting route", e);
             } catch (NoConnectionException e) {
-                LOGE(TAG, "Failed to stop the application after disconecting route", e);
+                LOGE(TAG, "Failed to stop the application after disconnecting route", e);
             }
             onDisconnected();
             onDeviceUnselected();
@@ -261,6 +262,7 @@ public abstract class BaseCastManager implements DeviceSelectionListener, Connec
                 }
                 mApiClient = null;
             }
+            mSessionId = null;
         } else if (null == mApiClient) {
             LOGD(TAG, "acquiring a conenction to Google Play services for " + mSelectedCastDevice);
             Cast.CastOptions.Builder apiOptionsBuilder = getCastOptionBuilder(mSelectedCastDevice);
@@ -556,6 +558,19 @@ public abstract class BaseCastManager implements DeviceSelectionListener, Connec
      */
     public void clearContext(){
         this.mContext = null;
+    }
+
+    /**
+     * Clears the {@link android.content.Context} if the current context is the same as the one
+     * provided in the argument <code>context</code>. Should be used when the client application
+     * is being destroyed to avoid context leak.
+     *
+     * @param context
+     */
+    public void clearContext(Context context){
+        if (null != this.mContext && this.mContext == context) {
+            this.mContext = null;
+        }
     }
 
     /*************************************************************************/
@@ -1007,7 +1022,7 @@ public abstract class BaseCastManager implements DeviceSelectionListener, Connec
     public void stopApplication() throws IllegalStateException, IOException,
             TransientNetworkDisconnectionException, NoConnectionException {
         checkConnectivity();
-        Cast.CastApi.stopApplication(mApiClient).setResultCallback(new ResultCallback<Status>() {
+        Cast.CastApi.stopApplication(mApiClient, mSessionId).setResultCallback(new ResultCallback<Status>() {
 
             @Override
             public void onResult(Status result) {
